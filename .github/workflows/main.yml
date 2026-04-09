@@ -4,70 +4,61 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Prepare Elite Menu Code
+      - name: Build Elite
         run: |
-          cat <<EOF > elite_menu.m
+          cat <<EOF > elite.m
           #import <Foundation/Foundation.h>
           #import <UIKit/UIKit.h>
           #import <CoreLocation/CoreLocation.h>
           #import <objc/runtime.h>
 
-          @interface EliteMenu : NSObject
-          @property (nonatomic, strong) UIWindow *menuWindow;
-          + (instancetype)shared;
+          @interface EliteManager : NSObject
+          @property (nonatomic, strong) UIWindow *menuWin;
           @end
 
-          @implementation EliteMenu
-          + (instancetype)shared {
-              static EliteMenu *shared = nil;
+          @implementation EliteManager
+          + (void)load {
               static dispatch_once_t onceToken;
-              dispatch_once(&onceToken, ^{ shared = [[self alloc] init]; });
-              return shared;
-          }
+              dispatch_once(&onceToken, ^{
+                  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                      EliteManager *manager = [[EliteManager alloc] init];
+                      manager.menuWin = [[UIWindow alloc] initWithFrame:CGRectMake(50, 150, 60, 60)];
+                      manager.menuWin.backgroundColor = [UIColor colorWithRed:0.1 green:0.1 blue:0.1 alpha:0.8];
+                      manager.menuWin.layer.cornerRadius = 30;
+                      manager.menuWin.layer.borderWidth = 2;
+                      manager.menuWin.layer.borderColor = [UIColor redColor].CGColor;
+                      manager.menuWin.windowLevel = UIWindowLevelAlert + 1;
 
-          - (void)showMenu {
-              dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                  self.menuWindow = [[UIWindow alloc] initWithFrame:CGRectMake(50, 150, 70, 70)];
-                  self.menuWindow.backgroundColor = [UIColor colorWithRed:0.1 green:0.1 blue:0.1 alpha:0.8];
-                  self.menuWindow.layer.cornerRadius = 35;
-                  self.menuWindow.layer.borderWidth = 2;
-                  self.menuWindow.layer.borderColor = [UIColor redColor].CGColor;
-                  self.menuWindow.windowLevel = UIWindowLevelAlert + 1;
-                  
-                  UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
-                  btn.frame = self.menuWindow.bounds;
-                  [btn setTitle:@"ELITE" forState:UIControlStateNormal];
-                  [btn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-                  btn.titleLabel.font = [UIFont boldSystemFontOfSize:12];
-                  [btn addTarget:self action:@selector(menuClicked) forControlEvents:UIControlEventTouchUpInside];
-                  
-                  [self.menuWindow addSubview:btn];
-                  [self.menuWindow makeKeyAndVisible];
-                  
-                  UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(dragged:)];
-                  [self.menuWindow addGestureRecognizer:pan];
+                      UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
+                      btn.frame = manager.menuWin.bounds;
+                      [btn setTitle:@"ELITE" forState:UIControlStateNormal];
+                      [btn addTarget:manager action:@selector(clicked) forControlEvents:UIControlEventTouchUpInside];
+                      [manager.menuWin addSubview:btn];
+                      [manager.menuWin makeKeyAndVisible];
+
+                      UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:manager action:@selector(drag:)];
+                      [manager.menuWin addGestureRecognizer:pan];
+                      
+                      // السطر التالي يمنع حذف الكائن من الذاكرة
+                      objc_setAssociatedObject([UIApplication sharedApplication], "_eliteMgr", manager, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+                  });
               });
           }
 
-          - (void)menuClicked {
-              UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Sniper Elite" 
-                                          message:@"تم تفعيل وضع التخفي والارتجاج بنجاح" 
-                                          preferredStyle:UIAlertControllerStyleAlert];
-              [alert addAction:[UIAlertAction actionWithTitle:@"استمرار" style:UIAlertActionStyleDefault handler:nil]];
+          - (void)clicked {
+              UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Sniper Elite" message:@"وضع التخفي والارتجاج فعال" preferredStyle:UIAlertControllerStyleAlert];
+              [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
               [[UIApplication sharedApplication].keyWindow.rootViewController presentViewController:alert animated:YES completion:nil];
           }
 
-          - (void)dragged:(UIPanGestureRecognizer *)p {
-              CGPoint translation = [p translationInView:self.menuWindow];
-              self.menuWindow.center = CGPointMake(self.menuWindow.center.x + translation.x, self.menuWindow.center.y + translation.y);
-              [p setTranslation:CGPointZero inView:self.menuWindow];
+          - (void)drag:(UIPanGestureRecognizer *)p {
+              CGPoint t = [p translationInView:self.menuWin];
+              self.menuWin.center = CGPointMake(self.menuWin.center.x + t.x, self.menuWin.center.y + t.y);
+              [p setTranslation:CGPointZero inView:self.menuWin];
           }
           @end
 
-          @implementation NSObject (EliteCore)
+          @implementation NSObject (EliteHook)
           - (struct CLLocationCoordinate2D)fake_coordinate {
               double lat = 24.7136; 
               double lng = 46.6753;
@@ -77,16 +68,15 @@ jobs:
           @end
 
           __attribute__((constructor)) static void init() {
-              [[EliteMenu shared] showMenu];
               Method orig = class_getInstanceMethod(objc_getClass("CLLocation"), @selector(coordinate));
               Method swiz = class_getInstanceMethod(objc_getClass("NSObject"), @selector(fake_coordinate));
               method_exchangeImplementations(orig, swiz);
           }
           EOF
 
-          clang -dynamiclib -arch arm64 elite_menu.m -o libR6X9.dylib -framework Foundation -framework CoreLocation -framework UIKit -lobjc -undefined dynamic_lookup
+          clang -dynamiclib -arch arm64 elite.m -o libR6X9.dylib -framework Foundation -framework CoreLocation -framework UIKit -lobjc -undefined dynamic_lookup
 
-      - name: Upload Artifact
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: Elite-Sniper-Final
