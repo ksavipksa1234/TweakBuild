@@ -1,26 +1,41 @@
-name: Build My Dylib
+name: Build Sniper Dylib
 on: [push, workflow_dispatch]
 
 jobs:
   build:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Unzip and Find Project
+      - name: Create Sniper Code
         run: |
-          unzip *.zip
-          # البحث عن المجلد الذي يحتوي على testDylib
-          TARGET_DIR=$(find . -name "testDylib" -type d | head -n 1)
-          echo "PROJECT_PATH=$TARGET_DIR" >> $GITHUB_ENV
+          cat <<EOF > sniper.m
+          #import <Foundation/Foundation.h>
+          #import <CoreLocation/CoreLocation.h>
+          #import <objc/runtime.h>
+
+          @interface CLLocation (Sniper)
+          @end
+
+          @implementation CLLocation (Sniper)
+          + (void)load {
+              Method orig = class_getInstanceMethod([self class], @selector(coordinate));
+              Method swiz = class_getInstanceMethod([self class], @selector(fake_coordinate));
+              method_exchangeImplementations(orig, swiz);
+          }
+          - (struct CLLocationCoordinate2D)fake_coordinate {
+              struct CLLocationCoordinate2D coords;
+              coords.latitude = 24.7136; // الرياض
+              coords.longitude = 46.6753;
+              return coords;
+          }
+          @end
+          EOF
 
       - name: Build Dylib
         run: |
-          cd "${{ env.PROJECT_PATH }}"
-          clang -dynamiclib -arch arm64 -install_name /usr/lib/libR6X9.dylib *.m* -o libR6X9.dylib -framework Foundation -framework CoreLocation -framework UIKit -lobjc -undefined dynamic_lookup
+          clang -dynamiclib -arch arm64 -install_name /usr/lib/libR6X9.dylib sniper.m -o libR6X9.dylib -framework Foundation -framework CoreLocation -lobjc -undefined dynamic_lookup
 
-      - name: Upload Result
+      - name: Upload Finished File
         uses: actions/upload-artifact@v4
         with:
-          name: my-final-dylib
-          path: "**/libR6X9.dylib"
+          name: Sniper-Dylib-Ready
+          path: libR6X9.dylib
