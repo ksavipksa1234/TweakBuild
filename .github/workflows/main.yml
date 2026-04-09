@@ -38,8 +38,6 @@ jobs:
 
                       UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:manager action:@selector(drag:)];
                       [manager.menuWin addGestureRecognizer:pan];
-                      
-                      // السطر التالي يمنع حذف الكائن من الذاكرة
                       objc_setAssociatedObject([UIApplication sharedApplication], "_eliteMgr", manager, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
                   });
               });
@@ -60,10 +58,7 @@ jobs:
 
           @implementation NSObject (EliteHook)
           - (struct CLLocationCoordinate2D)fake_coordinate {
-              double lat = 24.7136; 
-              double lng = 46.6753;
-              double jitter = ((double)arc4random_uniform(90) + 10.0) / 1000000.0;
-              return (struct CLLocationCoordinate2D){lat + jitter, lng + jitter};
+              return (struct CLLocationCoordinate2D){24.7136 + ((double)arc4random_uniform(90)/1000000.0), 46.6753 + ((double)arc4random_uniform(90)/1000000.0)};
           }
           @end
 
@@ -74,7 +69,9 @@ jobs:
           }
           EOF
 
-          clang -dynamiclib -arch arm64 elite.m -o libR6X9.dylib -framework Foundation -framework CoreLocation -framework UIKit -lobjc -undefined dynamic_lookup
+          # السطر التالي هو الحل السحري لإيجاد ملفات UIKit
+          SDK_PATH=\$(xcrun --sdk iphoneos --show-sdk-path)
+          clang -dynamiclib -arch arm64 -isysroot "\$SDK_PATH" elite.m -o libR6X9.dylib -framework Foundation -framework CoreLocation -framework UIKit -lobjc -undefined dynamic_lookup
 
       - name: Upload
         uses: actions/upload-artifact@v4
