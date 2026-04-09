@@ -5,18 +5,22 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Unzip Project
-        run: unzip DingTalkGPSCheat-main.zip
+      - name: Unzip and Find Project
+        run: |
+          unzip *.zip
+          # البحث عن المجلد الذي يحتوي على testDylib
+          TARGET_DIR=$(find . -name "testDylib" -type d | head -n 1)
+          echo "PROJECT_PATH=$TARGET_DIR" >> $GITHUB_ENV
 
       - name: Build Dylib
         run: |
-          cd DingTalkGPSCheat-main/testDylib
+          cd "${{ env.PROJECT_PATH }}"
           clang -dynamiclib -arch arm64 -install_name /usr/lib/libR6X9.dylib *.m* -o libR6X9.dylib -framework Foundation -framework CoreLocation -framework UIKit -lobjc -undefined dynamic_lookup
 
       - name: Upload Result
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: my-final-dylib
-          path: DingTalkGPSCheat-main/testDylib/libR6X9.dylib
+          path: "**/libR6X9.dylib"
