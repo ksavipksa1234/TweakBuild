@@ -1,41 +1,24 @@
-name: Build Sniper Dylib
+name: Build Sniper
 on: [push, workflow_dispatch]
-
 jobs:
   build:
     runs-on: macos-latest
     steps:
-      - name: Create Sniper Code
+      - name: Build
         run: |
           cat <<EOF > sniper.m
           #import <Foundation/Foundation.h>
           #import <CoreLocation/CoreLocation.h>
           #import <objc/runtime.h>
-
-          @interface CLLocation (Sniper)
-          @end
-
-          @implementation CLLocation (Sniper)
-          + (void)load {
-              Method orig = class_getInstanceMethod([self class], @selector(coordinate));
-              Method swiz = class_getInstanceMethod([self class], @selector(fake_coordinate));
-              method_exchangeImplementations(orig, swiz);
-          }
+          @implementation NSObject (Sniper)
           - (struct CLLocationCoordinate2D)fake_coordinate {
-              struct CLLocationCoordinate2D coords;
-              coords.latitude = 24.7136; // الرياض
-              coords.longitude = 46.6753;
-              return coords;
+              return (struct CLLocationCoordinate2D){24.7136, 46.6753};
           }
           @end
           EOF
-
-      - name: Build Dylib
-        run: |
-          clang -dynamiclib -arch arm64 -install_name /usr/lib/libR6X9.dylib sniper.m -o libR6X9.dylib -framework Foundation -framework CoreLocation -lobjc -undefined dynamic_lookup
-
-      - name: Upload Finished File
+          clang -dynamiclib -arch arm64 sniper.m -o libR6X9.dylib -framework Foundation -framework CoreLocation -lobjc -undefined dynamic_lookup
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: Sniper-Dylib-Ready
+          name: Final-Dylib
           path: libR6X9.dylib
