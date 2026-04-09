@@ -1,0 +1,22 @@
+name: Build My Dylib
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Unzip Project
+        run: unzip DingTalkGPSCheat-main.zip
+
+      - name: Build Dylib
+        run: |
+          cd DingTalkGPSCheat-main/testDylib
+          clang -dynamiclib -arch arm64 -install_name /usr/lib/libR6X9.dylib *.m* -o libR6X9.dylib -framework Foundation -framework CoreLocation -framework UIKit -lobjc -undefined dynamic_lookup
+
+      - name: Upload Result
+        uses: actions/upload-artifact@v3
+        with:
+          name: my-final-dylib
+          path: DingTalkGPSCheat-main/testDylib/libR6X9.dylib
