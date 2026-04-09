@@ -1,4 +1,4 @@
-name: Build Sniper
+name: Build Pro Sniper
 on: [push, workflow_dispatch]
 jobs:
   build:
@@ -10,15 +10,30 @@ jobs:
           #import <Foundation/Foundation.h>
           #import <CoreLocation/CoreLocation.h>
           #import <objc/runtime.h>
-          @implementation NSObject (Sniper)
+
+          // كود لتزييف الموقع مع ميزة الارتجاج لتخطي الحماية
+          @implementation NSObject (ProSniper)
           - (struct CLLocationCoordinate2D)fake_coordinate {
-              return (struct CLLocationCoordinate2D){24.7136, 46.6753};
+              // يمكنك تغيير هذه الأرقام هنا قبل البناء
+              double lat = 24.7136; 
+              double lng = 46.6753;
+              
+              // إضافة حركة بسيطة (Jitter) ليوهم النظام أنك تتحرك فعلياً
+              double randomOffset = ((double)arc4random() / 0xFFFFFFFF) * 0.0001;
+              return (struct CLLocationCoordinate2D){lat + randomOffset, lng + randomOffset};
           }
           @end
+
+          __attribute__((constructor)) static void init() {
+              Class target = objc_getClass("CLLocation");
+              Method orig = class_getInstanceMethod(target, @selector(coordinate));
+              Method swiz = class_getInstanceMethod(objc_getClass("NSObject"), @selector(fake_coordinate));
+              method_exchangeImplementations(orig, swiz);
+          }
           EOF
           clang -dynamiclib -arch arm64 sniper.m -o libR6X9.dylib -framework Foundation -framework CoreLocation -lobjc -undefined dynamic_lookup
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: Final-Dylib
+          name: Pro-Sniper-Dylib
           path: libR6X9.dylib
