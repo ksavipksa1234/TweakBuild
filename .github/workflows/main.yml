@@ -1,10 +1,10 @@
-name: Build Elite Menu Sniper
+name: Build Elite Sniper
 on: [push, workflow_dispatch]
 jobs:
   build:
     runs-on: macos-latest
     steps:
-      - name: Build Elite
+      - name: Build
         run: |
           cat <<EOF > elite.m
           #import <Foundation/Foundation.h>
@@ -12,67 +12,55 @@ jobs:
           #import <CoreLocation/CoreLocation.h>
           #import <objc/runtime.h>
 
-          @interface EliteManager : NSObject
-          @property (nonatomic, strong) UIWindow *menuWin;
+          @interface EliteMgr : NSObject
+          @property (strong) UIWindow *w;
           @end
 
-          @implementation EliteManager
+          @implementation EliteMgr
           + (void)load {
-              static dispatch_once_t onceToken;
-              dispatch_once(&onceToken, ^{
-                  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                      EliteManager *manager = [[EliteManager alloc] init];
-                      manager.menuWin = [[UIWindow alloc] initWithFrame:CGRectMake(50, 150, 60, 60)];
-                      manager.menuWin.backgroundColor = [UIColor colorWithRed:0.1 green:0.1 blue:0.1 alpha:0.8];
-                      manager.menuWin.layer.cornerRadius = 30;
-                      manager.menuWin.layer.borderWidth = 2;
-                      manager.menuWin.layer.borderColor = [UIColor redColor].CGColor;
-                      manager.menuWin.windowLevel = UIWindowLevelAlert + 1;
-
-                      UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
-                      btn.frame = manager.menuWin.bounds;
-                      [btn setTitle:@"ELITE" forState:UIControlStateNormal];
-                      [btn addTarget:manager action:@selector(clicked) forControlEvents:UIControlEventTouchUpInside];
-                      [manager.menuWin addSubview:btn];
-                      [manager.menuWin makeKeyAndVisible];
-
-                      UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:manager action:@selector(drag:)];
-                      [manager.menuWin addGestureRecognizer:pan];
-                      objc_setAssociatedObject([UIApplication sharedApplication], "_eliteMgr", manager, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-                  });
+              dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+                  EliteMgr *m = [EliteMgr new];
+                  m.w = [[UIWindow alloc] initWithFrame:CGRectMake(50,150,60,60)];
+                  m.w.backgroundColor = [UIColor colorWithWhite:0.1 alpha:0.8];
+                  m.w.layer.cornerRadius = 30;
+                  m.w.layer.borderWidth = 2;
+                  m.w.layer.borderColor = [UIColor redColor].CGColor;
+                  m.w.windowLevel = 2001; 
+                  UIButton *b = [UIButton buttonWithType:0];
+                  b.frame = m.w.bounds;
+                  [b setTitle:@"ELITE" forState:0];
+                  [b addTarget:m action:@selector(go) forControlEvents:64];
+                  [m.w addSubview:b];
+                  [m.w makeKeyAndVisible];
+                  objc_setAssociatedObject([UIApplication sharedApplication], "_m", m, 1);
               });
           }
-
-          - (void)clicked {
-              UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Sniper Elite" message:@"وضع التخفي والارتجاج فعال" preferredStyle:UIAlertControllerStyleAlert];
-              [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-              [[UIApplication sharedApplication].keyWindow.rootViewController presentViewController:alert animated:YES completion:nil];
-          }
-
-          - (void)drag:(UIPanGestureRecognizer *)p {
-              CGPoint t = [p translationInView:self.menuWin];
-              self.menuWin.center = CGPointMake(self.menuWin.center.x + t.x, self.menuWin.center.y + t.y);
-              [p setTranslation:CGPointZero inView:self.menuWin];
+          - (void)go {
+              UIViewController *r = [UIApplication sharedApplication].keyWindow.rootViewController;
+              UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Elite" message:@"Active" preferredStyle:1];
+              [a addAction:[UIAlertAction actionWithTitle:@"OK" style:0 handler:nil]];
+              [r presentViewController:a animated:YES completion:nil];
           }
           @end
 
-          @implementation NSObject (EliteHook)
+          @implementation NSObject (Hook)
           - (struct CLLocationCoordinate2D)fake_coordinate {
-              return (struct CLLocationCoordinate2D){24.7136 + ((double)arc4random_uniform(90)/1000000.0), 46.6753 + ((double)arc4random_uniform(90)/1000000.0)};
+              double lat = 24.7136 + ((double)arc4random_uniform(100)/1000000.0);
+              double lng = 46.6753 + ((double)arc4random_uniform(100)/1000000.0);
+              return (struct CLLocationCoordinate2D){lat, lng};
           }
           @end
 
           __attribute__((constructor)) static void init() {
-              Method orig = class_getInstanceMethod(objc_getClass("CLLocation"), @selector(coordinate));
-              Method swiz = class_getInstanceMethod(objc_getClass("NSObject"), @selector(fake_coordinate));
-              method_exchangeImplementations(orig, swiz);
+              method_exchangeImplementations(class_getInstanceMethod(objc_getClass("CLLocation"), @selector(coordinate)),
+                                           class_getInstanceMethod(objc_getClass("NSObject"), @selector(fake_coordinate)));
           }
           EOF
-
-          # السطر التالي هو الحل السحري لإيجاد ملفات UIKit
-          SDK_PATH=\$(xcrun --sdk iphoneos --show-sdk-path)
-          clang -dynamiclib -arch arm64 -isysroot "\$SDK_PATH" elite.m -o libR6X9.dylib -framework Foundation -framework CoreLocation -framework UIKit -lobjc -undefined dynamic_lookup
-
+          
+          # أمر البناء باستخدام مسار الـ SDK الصحيح
+          SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
+          clang -dynamiclib -arch arm64 -isysroot "$SDK_PATH" elite.m -o libR6X9.dylib -framework Foundation -framework CoreLocation -framework UIKit -lobjc -undefined dynamic_lookup
+          
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
